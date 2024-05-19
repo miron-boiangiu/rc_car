@@ -41,8 +41,8 @@ public class CarController {
                             for (int x = 0; x < 160; x++) {
                                 while(!bluetoothClient.isDataAvailable());
                                 byte b = bluetoothClient.getByte();
-                                image[y][x] = b;
-                                image_array[y * 160 + x] = b;
+                                image[119-y][x] = b;
+                                //image_array[y * 160 + x] = b;
                             }
                         }
                     }
