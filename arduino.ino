@@ -1,19 +1,15 @@
-#include <SoftwareSerial.h> // Used to change HC-05 registers
 #include <stdint.h>
 #include <avr/io.h>
 #include <util/twi.h>
 #include <util/delay.h>
 #include <avr/pgmspace.h>
 
-#define F_CPU 16000000UL
-#define vga   0
-#define qvga  1
-#define qqvga   2
-#define yuv422  0
-#define rgb565  1
-#define bayerRGB  2
 #define camAddr_WR  0x42
 #define camAddr_RD  0x43
+#define MOTORS_PIN_A 12
+#define MOTORS_PIN_B 12
+#define HEIGHT 120
+#define WIDTH 160
 
 /* Registers */
 #define REG_GAIN    0x00  /* Gain lower 8 bits (rest in vref) */
@@ -282,51 +278,17 @@ struct regval_list{
   uint16_t value;
 };
 
-const struct regval_list qvga_ov7670[] PROGMEM = {
+const struct regval_list qqvga_ov7670[] PROGMEM = {
   { REG_COM14, 0x1A },
   { 0x73, 0xF2 },
   {0x72, 0x22},
-  // { REG_HSTART, 0x16 },
-  // { REG_HSTOP, 0x04 },
-  // { REG_HREF, 0xa4 },
-  // { REG_VSTART, 0x02 },
-  // { REG_VSTOP, 0x7a },
-  // { REG_VREF, 0x0a },
-
-
-/*  { REG_HSTART, 0x16 },
-  { REG_HSTOP, 0x04 },
-  { REG_HREF, 0x24 },
-  { REG_VSTART, 0x02 },
-  { REG_VSTOP, 0x7a },
-  { REG_VREF, 0x0a },*/
   { 0xff, 0xff }, /* END MARKER */
-};
-
-const struct regval_list yuv422_ov7670[] PROGMEM = {
-  { REG_COM7, 0x0 },  /* Selects YUV mode */
-  { REG_RGB444, 0 },  /* No RGB444 please */
-  { REG_COM1, 0 },
-  { REG_COM15, COM15_R00FF },
-  { REG_COM9, 0x6A }, /* 128x gain ceiling; 0x8 is reserved bit */
-  { 0x4f, 0x80 },   /* "matrix coefficient 1" */
-  { 0x50, 0x80 },   /* "matrix coefficient 2" */
-  { 0x51, 0 },    /* vb */
-  { 0x52, 0x22 },   /* "matrix coefficient 4" */
-  { 0x53, 0x5e },   /* "matrix coefficient 5" */
-  { 0x54, 0x80 },   /* "matrix coefficient 6" */
-  { REG_COM13, COM13_UVSAT },
-  { 0xff, 0xff },   /* END MARKER */
 };
 
 const struct regval_list ov7670_default_regs[] PROGMEM = {//from the linux driver
   { REG_COM7, COM7_RESET },
   { REG_TSLB, 0x04 }, /* OV */
   { REG_COM7, 0 },  /* VGA */
-  /*
-  * Set the hardware window.  These values from OV don't entirely
-  * make sense - hstop is less than hstart.  But they work...
-  */
   { REG_HSTART, 0x13 }, { REG_HSTOP, 0x01 },
   { REG_HREF, 0xb6 }, { REG_VSTART, 0x02 },
   { REG_VSTOP, 0x7a }, { REG_VREF, 0x0a },
@@ -345,8 +307,6 @@ const struct regval_list ov7670_default_regs[] PROGMEM = {//from the linux drive
   { 0x84, 0x96 }, { 0x85, 0xa3 },
   { 0x86, 0xaf }, { 0x87, 0xc4 },
   { 0x88, 0xd7 }, { 0x89, 0xe8 },
-  /* AGC and AEC parameters.  Note we start by disabling those features,
-  then turn them only after tweaking the values. */
   { REG_COM8, COM8_FASTAEC | COM8_AECSTEP },
   { REG_GAIN, 0 }, { REG_AECH, 0 },
   { REG_COM4, 0x40 }, /* magic reserved bit */
@@ -426,7 +386,6 @@ const struct regval_list ov7670_default_regs[] PROGMEM = {//from the linux drive
   { 0x79, 0x26 },
   { 0xff, 0xff }, /* END MARKER */
 };
-
 
 void error_led(void){
   DDRB |= 32;//make sure led is output
@@ -512,10 +471,6 @@ void wrSensorRegs8_8(const struct regval_list reglist[]){
   }
 }
 
-void setColor(void){
-  wrSensorRegs8_8(yuv422_ov7670);
-}
-
 void setRes(void){
   wrReg(REG_COM3, 4); // REG_COM3 enable scaling
   wrReg(REG_HSTART,0x16);
@@ -524,23 +479,18 @@ void setRes(void){
   wrReg(REG_VSTART, 0x02);
   wrReg(REG_VSTOP, 0x7A);
   wrReg(REG_VREF, 0xa4);
-  wrSensorRegs8_8(qvga_ov7670);
+  wrSensorRegs8_8(qqvga_ov7670);
 }
 
 void camInit(void){
   wrReg(0x12, 0x80);
-  UDR0 = 'I';
-  while (!(UCSR0A & (1 << UDRE0)));//wait for byte to transmit
   _delay_ms(300);
   wrSensorRegs8_8(ov7670_default_regs);
-  UDR0 = 'Z';
-  while (!(UCSR0A & (1 << UDRE0)));//wait for byte to transmit
   wrReg(REG_COM10, 32);//PCLK does not toggle on HBLANK.
 }
 
-void arduinoUnoInut(void) {
+void arduinoUnoInit(void) {
   cli();//disable interrupts
-
 
   DDRB |= (1 << 3);//pin 11
   DDRC &= ~15;//low d0-d3 camera
@@ -554,18 +504,17 @@ void arduinoUnoInut(void) {
 
   _delay_ms(1000);
 
-    //set up twi for 100khz
+  //set up twi for 100khz
   TWSR &= ~3;//disable prescaler for TWI
   TWBR = 72;//set to 100khz
 
-    //enable serial
+  //enable serial
   UBRR0H = 0;
   UBRR0L = 8;//0 = 2M baud rate. 1 = 1M baud. 3 = 0.5M. 7 = 250k 207 is 9600 baud rate.
   UCSR0A |= 2;//double speed aysnc
   UCSR0B = (1 << RXEN0) | (1 << TXEN0);//Enable receiver and transmitter
   UCSR0C = 6;//async 1 stop bit 8bit char no parity bits
 }
-
 
 void StringPgm(const char * str){
   do{
@@ -575,7 +524,14 @@ void StringPgm(const char * str){
   } while (pgm_read_byte_near(++str));
 }
 
-static void captureImg(uint16_t wg, uint16_t hg){
+void setup(){
+  arduinoUnoInit();
+  camInit();
+  setRes();
+  wrReg(0x11, 25); // Raise if image turns out shitty
+}
+
+void loop(){
   uint16_t y, x;
 
   StringPgm(PSTR("*RDY*"));
@@ -583,10 +539,9 @@ static void captureImg(uint16_t wg, uint16_t hg){
   while (!(PIND & 8));//wait for high
   while ((PIND & 8));//wait for low
 
-    y = hg;
+  y = HEIGHT;
   while (y--){
-        x = wg;
-      //while (!(PIND & 256));//wait for high
+    x = WIDTH;
     while (x--){
       while ((PIND & 4));//wait for low
       UDR0 = (PINC & 15) | (PIND & 240);
@@ -595,33 +550,5 @@ static void captureImg(uint16_t wg, uint16_t hg){
       while ((PIND & 4));//wait for low
       while (!(PIND & 4));//wait for high
     }
-    //  while ((PIND & 256));//wait for low
   }
-  //_delay_ms(100);
-}
-
-void setup(){
-  arduinoUnoInut();
-  UDR0 = 'P';
-  while (!(UCSR0A & (1 << UDRE0)));//wait for byte to transmit
-  camInit();
-  UDR0 = 'U';
-  while (!(UCSR0A & (1 << UDRE0)));//wait for byte to transmit
-  setRes();
-  UDR0 = 'L';
-  while (!(UCSR0A & (1 << UDRE0)));//wait for byte to transmit
-  wrReg(0x11, 25); // Raise if image turns out shitty
-  UDR0 = 'A';
-  while (!(UCSR0A & (1 << UDRE0)));//wait for byte to transmit
-}
-
-void loop(){
-
-  // if (bluetoothSerial.available())
-  //   Serial.write(bluetoothSerial.read());
-
-  // if (Serial.available())
-  //   bluetoothSerial.write(Serial.read());
-
-  captureImg(160, 120);
 }
