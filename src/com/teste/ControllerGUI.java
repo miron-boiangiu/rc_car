@@ -1,5 +1,7 @@
 package com.teste;
 
+import com.teste.bluetoothclient.BluetoothClient;
+
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
@@ -33,6 +35,4 @@ public class ControllerGUI extends JFrame{
         this.setResizable(false);
         this.setVisible(true);//making the frame visible
     }
-
-
 }

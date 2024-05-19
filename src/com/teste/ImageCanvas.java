@@ -16,6 +16,7 @@ public class ImageCanvas extends Canvas {
 
     @Override
     public void paint(Graphics g) {
+        super.paint(g);
         for (int y = 0; y < 120; y++) {
             for (int x = 0; x < 160; x++) {
                 int val = image[y][x] & 0xFF;

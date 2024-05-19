@@ -6,7 +6,7 @@
 
 #define camAddr_WR  0x42
 #define camAddr_RD  0x43
-#define MOTORS_PIN_A 12
+#define MOTORS_PIN_A PB4
 #define MOTORS_PIN_B 12
 #define HEIGHT 120
 #define WIDTH 160
@@ -492,7 +492,7 @@ void camInit(void){
 void arduinoUnoInit(void) {
   cli();//disable interrupts
 
-  DDRB |= (1 << 3);//pin 11
+  DDRB |= (1 << 3) | (1 << PB4);
   DDRC &= ~15;//low d0-d3 camera
   DDRD &= ~252;//d7-d4 and interrupt pins
     /* Setup the 8mhz PWM clock
@@ -529,6 +529,21 @@ void setup(){
   camInit();
   setRes();
   wrReg(0x11, 25); // Raise if image turns out shitty
+  PORTB |= 1 << PB4;
+}
+
+void handleInput() {
+  if (UCSR0A & (1<<RXC0)) { // We handle it here since it's where we have a couple of spare cycles. Fuck OV7670
+    uint8_t val = UDR0;
+    switch(val) {
+      case '0':
+        PORTB |= 1 << PB4;
+        break;
+      case '1':
+        PORTB &= ~(1 << PB4);
+        break;
+    }
+  }
 }
 
 void loop(){
@@ -536,8 +551,12 @@ void loop(){
 
   StringPgm(PSTR("*RDY*"));
 
-  while (!(PIND & 8));//wait for high
-  while ((PIND & 8));//wait for low
+  while (!(PIND & 8)) {
+    handleInput();
+  }
+  while ((PIND & 8)) {
+    handleInput();
+  }
 
   y = HEIGHT;
   while (y--){
@@ -546,9 +565,12 @@ void loop(){
       while ((PIND & 4));//wait for low
       UDR0 = (PINC & 15) | (PIND & 240);
       while (!(UCSR0A & (1 << UDRE0)));//wait for byte to transmit
-      while (!(PIND & 4));//wait for high
+      while (!(PIND & 4)) {
+        handleInput();
+      }
       while ((PIND & 4));//wait for low
       while (!(PIND & 4));//wait for high
     }
+    handleInput();
   }
 }

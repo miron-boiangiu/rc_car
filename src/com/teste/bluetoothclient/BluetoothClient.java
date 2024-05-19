@@ -69,6 +69,10 @@ public class BluetoothClient {
         outputStream.write(data);
     }
 
+    public void sendByte(byte data) throws IOException {
+        outputStream.writeByte(data);
+    }
+
     public boolean isDataAvailable() throws IOException {
         return inputStream.available() > 0;
     }
