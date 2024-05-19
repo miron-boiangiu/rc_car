@@ -5,8 +5,7 @@ import com.teste.bluetoothclient.BluetoothClient;
 import javax.swing.*;
 import java.io.IOException;
 
-import static java.awt.event.KeyEvent.VK_W;
-import static java.awt.event.KeyEvent.VK_X;
+import static java.awt.event.KeyEvent.*;
 
 public class CarController {
     private final BluetoothClient bluetoothClient;
@@ -23,19 +22,16 @@ public class CarController {
         Thread keyboardThread = new Thread(() -> {
             try {
                 while (true) {
-                    bluetoothClient.sendByte((byte) '0');
-                    Thread.sleep(1000);
-                    bluetoothClient.sendByte((byte) '1');
-                    Thread.sleep(1000);
-//                    if (keyboard.isKeyPressed(VK_W)) {
-//                        bluetoothClient.sendByte((byte) 48);
-//                        Thread.sleep(10);
-//                        System.out.println("W");
-//                    } else if (keyboard.isKeyPressed(VK_X)) {
-//                        bluetoothClient.sendByte((byte) 49);
-//                        Thread.sleep(10);
-//                        System.out.println("X");
-//                    }
+                    if (keyboard.isKeyPressed(VK_W)) {
+                        bluetoothClient.sendByte((byte) 'W');
+                        Thread.sleep(10);
+                    } else if (keyboard.isKeyPressed(VK_X)) {
+                        bluetoothClient.sendByte((byte) 'X');
+                        Thread.sleep(10);
+                    } else if (keyboard.isKeyPressed(VK_S)) {
+                        bluetoothClient.sendByte((byte) 'S');
+                        Thread.sleep(10);
+                    }
                 }
             }
             catch (IOException | InterruptedException e) {

@@ -7,7 +7,7 @@
 #define camAddr_WR  0x42
 #define camAddr_RD  0x43
 #define MOTORS_PIN_A PB4
-#define MOTORS_PIN_B 12
+#define MOTORS_PIN_B PB2
 #define HEIGHT 120
 #define WIDTH 160
 
@@ -492,7 +492,7 @@ void camInit(void){
 void arduinoUnoInit(void) {
   cli();//disable interrupts
 
-  DDRB |= (1 << 3) | (1 << PB4);
+  DDRB |= (1 << 3) | (1 << PB4) | (1 << PB2);
   DDRC &= ~15;//low d0-d3 camera
   DDRD &= ~252;//d7-d4 and interrupt pins
     /* Setup the 8mhz PWM clock
@@ -529,18 +529,23 @@ void setup(){
   camInit();
   setRes();
   wrReg(0x11, 25); // Raise if image turns out shitty
-  PORTB |= 1 << PB4;
+  PORTB &= ~((1 << PB4) | (1 << PB2));
 }
 
 void handleInput() {
   if (UCSR0A & (1<<RXC0)) { // We handle it here since it's where we have a couple of spare cycles. Fuck OV7670
     uint8_t val = UDR0;
     switch(val) {
-      case '0':
+      case 'W':
+        PORTB &= ~(1 << PB2);
         PORTB |= 1 << PB4;
         break;
-      case '1':
+      case 'X':
         PORTB &= ~(1 << PB4);
+        PORTB |= 1 << PB2;
+        break;
+      case 'S':
+        PORTB &= ~((1 << PB4) | (1 << PB2));
         break;
     }
   }
