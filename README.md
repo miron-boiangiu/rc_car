@@ -1,4 +1,4 @@
-#RC Car with camera
+# RC Car with camera
 
 [Project link](https://ocw.cs.pub.ro/courses/pm/prj2024/rvirtan/victor.boiangiu)
 
